@@ -1,9 +1,9 @@
-// --- 1. CONFIGURATION & UTILS ---
+// --- 1. CONFIGURATION ---
 const PIPED_INSTANCES = ["https://api-piped.mha.fi", "https://pipedapi.drgns.space"];
 const INVIDIOUS_INSTANCES = ["https://inv.nadeko.net", "https://invidious.projectsegfau.lt"];
 const ODYSEE_API = "https://api.odysee.com/api/v1/proxy";
 
-// Helper: Proxy to bypass CORS
+// Helper: Proxy for CORS
 async function proxiedFetch(url) {
     try {
         const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
@@ -13,31 +13,51 @@ async function proxiedFetch(url) {
     } catch (e) { return null; }
 }
 
-// --- 2. HISTORY LOGIC (Must be defined before searchAll) ---
+// --- 2. HISTORY LOGIC ---
 function saveSearchToHistory(query) {
     if (!query) return;
     let history = JSON.parse(localStorage.getItem("search_history") || "[]");
-    history = history.filter(q => q !== query); // Remove duplicates
-    history.unshift(query); // Add to front
-    localStorage.setItem("search_history", JSON.stringify(history.slice(0, 10)));
+    history = history.filter(q => q !== query);
+    history.unshift(query);
+    localStorage.setItem("search_history", JSON.stringify(history.slice(0, 8)));
+    renderHistory();
+}
+
+function clearHistory() {
+    localStorage.removeItem("search_history");
     renderHistory();
 }
 
 function renderHistory() {
     const container = document.getElementById("search-history");
     if (!container) return;
+    
     const history = JSON.parse(localStorage.getItem("search_history") || "[]");
-    container.innerHTML = history.map(q => `
+    
+    if (history.length === 0) {
+        container.innerHTML = "";
+        return;
+    }
+
+    // Map history to chips + add a "Clear" button at the end
+    let html = history.map(q => `
         <span onclick="document.getElementById('q').value='${q}'; doSearch();" 
-              style="background:#eee; padding:5px 12px; border-radius:20px; cursor:pointer; font-size:12px;">
+              style="background:#eee; padding:5px 12px; border-radius:20px; cursor:pointer; font-size:12px; border:1px solid #ccc;">
             ${q}
         </span>`).join("");
+    
+    html += `<button onclick="clearHistory()" style="background:none; border:none; color:red; cursor:pointer; font-size:12px; margin-left:10px;">Clear All</button>`;
+    
+    container.innerHTML = html;
 }
 
-// --- 3. SEARCH APIS ---
+// --- 3. API SEARCHES ---
 async function updateStatus(id, status) {
     const el = document.getElementById(`status-${id}`);
-    if (el) el.innerText = `${id}: ${status === 'loading' ? '⏳' : status === 'success' ? '✅' : '❌'}`;
+    if (el) {
+        const icons = { loading: "⏳", success: "✅", fail: "❌" };
+        el.innerText = `${id.charAt(0).toUpperCase() + id.slice(1)}: ${icons[status]}`;
+    }
 }
 
 async function searchPiped(query) {
@@ -77,30 +97,48 @@ async function searchOdysee(query) {
     return [];
 }
 
-// --- 4. CORE ENGINE ---
+// --- 4. ENGINE ---
 async function searchAll(query) {
-    saveSearchToHistory(query); // Now this is safely defined above!
-    const results = await Promise.all([searchPiped(query), searchInvidious(query), searchOdysee(query)]);
+    saveSearchToHistory(query);
+    
+    const results = await Promise.all([
+        searchPiped(query),
+        searchInvidious(query),
+        searchOdysee(query)
+    ]);
+
     const flat = results.flat();
     const unique = new Map();
-    flat.forEach(v => { if (v && v.id && !unique.has(v.id)) unique.set(v.id, v); });
-    return Array.from(unique.values()).filter(v => v.duration > 60);
+    flat.forEach(v => {
+        if (v && v.id && !unique.has(v.id)) unique.set(v.id, v);
+    });
+
+    const videos = Array.from(unique.values()).filter(v => v.duration > 60);
+    return typeof rankVideos === 'function' ? rankVideos(videos) : videos;
 }
 
 function renderResults(videos) {
     const el = document.getElementById("results");
     if (!el) return;
-    el.innerHTML = videos.length ? "" : "<p>No videos found.</p>";
+    el.innerHTML = videos.length ? "" : "<p>No videos found. Try different terms.</p>";
+
     videos.forEach(v => {
         const card = document.createElement("div");
-        card.style = "border:1px solid #ddd; padding:10px; margin:10px 0; display:flex; gap:10px; cursor:pointer;";
+        card.style = "border:1px solid #ddd; padding:10px; margin:10px 0; display:flex; gap:15px; cursor:pointer; align-items:center; border-radius:8px;";
         card.onclick = () => window.location.href = `player.html?id=${v.id}&p=${v.platform}`;
-        card.innerHTML = `<img src="${v.thumbnail}" width="120"><p><b>${v.title}</b><br>${v.channel}</p>`;
+        card.innerHTML = `
+            <img src="${v.thumbnail}" style="width:140px; border-radius:4px; aspect-ratio:16/9; object-fit:cover;">
+            <div>
+                <h3 style="margin:0; font-size:1.1rem;">${v.title}</h3>
+                <p style="margin:5px 0; color:#666;">${v.channel} • <span style="text-transform:uppercase; font-weight:bold; font-size:0.7rem;">${v.platform}</span></p>
+            </div>
+        `;
         el.appendChild(card);
     });
 }
 
-// Global initialization
+// Initialization
 document.addEventListener("DOMContentLoaded", renderHistory);
 window.searchAll = searchAll;
 window.renderResults = renderResults;
+window.clearHistory = clearHistory;
