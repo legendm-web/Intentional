@@ -29,11 +29,14 @@ function setPlayer(pref) {
 }
 
 function getPlayer() {
-  return loadState().playerPreference || "invidious";
+    return localStorage.getItem("pref_player") || "invidious";
 }
 
 function recordWatch(video) {
-  const state = loadState();
+    let history = JSON.parse(localStorage.getItem("watch_history") || "[]");
+    history.unshift({ ...video, timestamp: Date.now() });
+    localStorage.setItem("watch_history", JSON.stringify(history.slice(0, 50)));
+}
 
   // Add video to the start of the array and limit to 20
   state.watchedVideos.unshift(video);
