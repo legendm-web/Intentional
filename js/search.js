@@ -3,44 +3,37 @@ const PIPED_INSTANCES = ["https://api-piped.mha.fi", "https://pipedapi.drgns.spa
 const INVIDIOUS_INSTANCES = ["https://inv.nadeko.net", "https://invidious.projectsegfau.lt", "https://inv.tux.digital"];
 const ODYSEE_API = "https://api.odysee.com/api/v1/proxy";
 
-// REPLACE with your actual Cloudflare Worker URL
-const MY_PROXY = "https://intentional.legendm.workers.dev/";
+// YOUR CLOUDFLARE PROXY
+const MY_PROXY = "https://intentional.legendm.workers.dev/?url=";
 
-// Add 'async' right here!
+// --- 2. THE SMART FETCH ENGINE ---
 async function smartFetch(url, forceProxy = false) {
+    // Attempt 1: Direct fetch (for Piped/CORS friendly APIs)
     if (!forceProxy) {
         try {
             const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
             if (res.ok) return await res.json();
-        } catch (e) { 
-            console.warn("Direct fetch failed, trying proxy..."); 
+        } catch (e) {
+            console.warn("Direct fetch failed, trying private proxy...");
         }
     }
-    // ... rest of code
-}
 
-async function searchAll(query) {
-    // ... rest of code
-}
-
-    // 2. Use your private Cloudflare Worker
+    // Attempt 2: Your Private Cloudflare Worker
     try {
         const res = await fetch(MY_PROXY + encodeURIComponent(url));
-        if (!res.ok) throw new Error("Proxy error");
-        return await res.json();
+        if (res.ok) return await res.json();
     } catch (e) {
-        console.error("All fetch methods failed for:", url);
-        return null;
+        console.warn("Private proxy failed, trying AllOrigins fallback...");
     }
-}
 
-    // Fallback Proxy: Using a more stable one for 2026
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    // Attempt 3: AllOrigins Public Fallback
     try {
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
         const res = await fetch(proxyUrl);
         const data = await res.json();
         return data.contents ? JSON.parse(data.contents) : data;
     } catch (e) {
+        console.error("All fetch methods failed for:", url);
         return null;
     }
 }
@@ -104,7 +97,7 @@ async function searchOdysee(query) {
     return [];
 }
 
-// --- 4. ENGINE & UI (Safely Exported) ---
+// --- 4. ENGINE & UI ---
 function saveSearchToHistory(query) {
     if (!query) return;
     let history = JSON.parse(localStorage.getItem("search_history") || "[]");
@@ -117,7 +110,7 @@ function renderHistory() {
     const container = document.getElementById("search-history");
     if (!container) return;
     const history = JSON.parse(localStorage.getItem("search_history") || "[]");
-    container.innerHTML = history.map(q => `<span onclick="document.getElementById('q').value='${q}'; doSearch();" style="background:#eee; padding:5px 12px; border-radius:20px; cursor:pointer; font-size:12px;">${q}</span>`).join("");
+    container.innerHTML = history.map(q => `<span onclick="document.getElementById('q').value='${q}'; doSearch();" style="background:#eee; padding:5px 12px; border-radius:20px; cursor:pointer; font-size:12px; margin-right:5px; display:inline-block; margin-bottom:5px;">${q}</span>`).join("");
 }
 
 function updateStatus(id, status) {
@@ -131,7 +124,10 @@ async function searchAll(query) {
     const flat = results.flat();
     const unique = new Map();
     flat.forEach(v => { if (v && v.id && !unique.has(v.id)) unique.set(v.id, v); });
-    return Array.from(unique.values()).filter(v => v.duration > 30);
+    
+    // Sort by duration or just return
+    const finalVids = Array.from(unique.values()).filter(v => v.duration > 30);
+    return typeof window.rankVideos === 'function' ? window.rankVideos(finalVids) : finalVids;
 }
 
 function renderResults(videos) {
@@ -141,8 +137,11 @@ function renderResults(videos) {
     videos.forEach(v => {
         const card = document.createElement("div");
         card.style = "border:1px solid #ddd; padding:10px; margin:10px 0; display:flex; gap:10px; cursor:pointer; border-radius:8px;";
-        card.onclick = () => window.location.href = `player.html?id=${v.id}&p=${v.platform}`;
-        card.innerHTML = `<img src="${v.thumbnail}" width="120" style="border-radius:4px;"><p><b>${v.title}</b><br><small>${v.channel} (${v.platform.toUpperCase()})</small></p>`;
+        card.onclick = () => {
+            if (typeof window.recordWatch === 'function') window.recordWatch(v);
+            window.location.href = `player.html?id=${v.id}&p=${v.platform}`;
+        };
+        card.innerHTML = `<img src="${v.thumbnail}" width="120" style="border-radius:4px; height:68px; object-fit:cover;"><p style="margin:0;"><b>${v.title}</b><br><small>${v.channel} (${v.platform.toUpperCase()})</small></p>`;
         el.appendChild(card);
     });
 }
