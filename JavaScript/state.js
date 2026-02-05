@@ -1,6 +1,7 @@
 const STATE_KEY = "intentional_state";
 
 const defaultState = {
+  playerPreference: "invidious" // or "youtube"
   watchedVideos: [],
   channelAffinity: {},
   topicWeights: {},
