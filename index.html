@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Intentional</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <h1>What do you want to watch?</h1>
+  <p class="subtitle">Nothing plays unless you choose it.</p>
+
+  <input id="q" placeholder="Search YouTube & LBRY">
+  <button onclick="doSearch()">Search</button>
+
+  <div id="results"></div>
+
+  <script src="js/state.js"></script>
+  <script src="js/rank.js"></script>
+  <script src="js/search.js"></script>
+  <script>
+    async function doSearch() {
+      const q = document.getElementById("q").value;
+      if (!q) return;
+      const vids = await searchAll(q);
+      renderResults(vids);
+    }
+  </script>
+</body>
+</html>
