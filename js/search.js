@@ -3,14 +3,30 @@ const PIPED_INSTANCES = ["https://api-piped.mha.fi", "https://pipedapi.drgns.spa
 const INVIDIOUS_INSTANCES = ["https://inv.nadeko.net", "https://invidious.projectsegfau.lt", "https://inv.tux.digital"];
 const ODYSEE_API = "https://api.odysee.com/api/v1/proxy";
 
-// --- 2. THE ULTIMATE FETCH (Proxy-Only-If-Needed) ---
-async function smartFetch(url, useProxy = false) {
-    if (!useProxy) {
+// REPLACE with your actual Cloudflare Worker URL
+const MY_PROXY = "https://my-proxy.yourname.workers.dev/?url=";
+
+async function smartFetch(url, forceProxy = false) {
+    // 1. Try direct fetch first for Piped (which usually allows CORS)
+    if (!forceProxy) {
         try {
-            const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+            const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
             if (res.ok) return await res.json();
-        } catch (e) { console.warn("Direct fetch failed, trying proxy..."); }
+        } catch (e) { 
+            console.log("Direct fetch blocked, using private proxy..."); 
+        }
     }
+
+    // 2. Use your private Cloudflare Worker
+    try {
+        const res = await fetch(MY_PROXY + encodeURIComponent(url));
+        if (!res.ok) throw new Error("Proxy error");
+        return await res.json();
+    } catch (e) {
+        console.error("All fetch methods failed for:", url);
+        return null;
+    }
+}
 
     // Fallback Proxy: Using a more stable one for 2026
     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
