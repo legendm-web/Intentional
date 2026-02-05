@@ -25,16 +25,24 @@
 
   <script>
     async function doSearch() {
-      const q = document.getElementById("q").value.trim();
-      if (!q) return;
-      document.getElementById("results").innerHTML = "Searching...";
-      try {
-        const vids = await window.searchAll(q); // Use window. to be safe
-        window.renderResults(vids);
-      } catch (e) {
-        console.error(e);
-      }
+  const q = document.getElementById("q").value.trim();
+  if (!q) return;
+
+  const resultsEl = document.getElementById("results");
+  resultsEl.innerHTML = "<p>Connecting to proxy...</p>";
+
+  try {
+    // Check if the function exists before calling it
+    if (typeof window.searchAll === "function") {
+      const vids = await window.searchAll(q);
+      window.renderResults(vids);
+    } else {
+      resultsEl.innerHTML = "<p style='color:red;'>Error: Search script failed to load. Check console.</p>";
     }
+  } catch (e) {
+    console.error("Search execution failed:", e);
+  }
+}
   </script>
 </body>
 </html>
