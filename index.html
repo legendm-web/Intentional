@@ -8,20 +8,36 @@
   <h1>What do you want to watch?</h1>
   <p class="subtitle">Nothing plays unless you choose it.</p>
 
-  <input id="q" placeholder="Search YouTube & LBRY">
+  <input
+    id="q"
+    placeholder="Search YouTube & LBRY"
+    onkeydown="if (event.key === 'Enter') doSearch()"
+  />
+
   <button onclick="doSearch()">Search</button>
 
   <div id="results"></div>
 
+  <!-- JS FILES (ORDER MATTERS) -->
   <script src="js/state.js"></script>
   <script src="js/rank.js"></script>
   <script src="js/search.js"></script>
+
+  <!-- INLINE GLUE CODE -->
   <script>
     async function doSearch() {
-      const q = document.getElementById("q").value;
+      const q = document.getElementById("q").value.trim();
       if (!q) return;
-      const vids = await searchAll(q);
-      renderResults(vids);
+
+      console.log("Searching for:", q);
+
+      try {
+        const vids = await searchAll(q);
+        console.log("Results:", vids);
+        renderResults(vids);
+      } catch (e) {
+        console.error("Search failed:", e);
+      }
     }
   </script>
 </body>
