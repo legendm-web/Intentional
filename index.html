@@ -8,42 +8,45 @@
   <h1>What do you want to watch?</h1>
   <p class="subtitle">Nothing plays unless you choose it.</p>
 
-  <input
-    id="q"
-    placeholder="Search YouTube & LBRY"
-    onkeydown="if (event.key === 'Enter') doSearch()"
-  />
+  <div class="search-container">
+    <input
+      id="q"
+      placeholder="Search YouTube & LBRY"
+      onkeydown="if (event.key === 'Enter') doSearch()"
+    />
+    <button onclick="doSearch()">Search</button>
+  </div>
 
-  <button onclick="doSearch()">Search</button>
-<div id="search-history" style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;"></div>
+  <div style="margin-top: 15px;">
+    <div id="search-history" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;"></div>
+    <div id="status-bar" style="margin: 10px 0; font-size: 0.85rem; color: #555; display: flex; gap: 15px;">
+        <span id="status-piped">Piped: ⚪</span>
+        <span id="status-invidious">Invidious: ⚪</span>
+        <span id="status-odysee">Odysee: ⚪</span>
+    </div>
+  </div>
+
   <div id="results"></div>
 
-  <!-- JS FILES (ORDER MATTERS) -->
   <script src="js/state.js"></script>
   <script src="js/rank.js"></script>
   <script src="js/search.js"></script>
   
-<div id="status-bar" style="margin: 10px 0; font-size: 0.85rem; color: #555; display: flex; gap: 15px;">
-    <span id="status-piped">Piped: ⚪</span>
-    <span id="status-invidious">Invidious: ⚪</span>
-    <span id="status-odysee">Odysee: ⚪</span>
-</div>
-  
-<div id="results"></div>
-  <!-- INLINE GLUE CODE -->
   <script>
     async function doSearch() {
       const q = document.getElementById("q").value.trim();
       if (!q) return;
 
       console.log("Searching for:", q);
+      // Clear previous results immediately to show loading
+      document.getElementById("results").innerHTML = "<p>Searching across platforms...</p>";
 
       try {
         const vids = await searchAll(q);
-        console.log("Results:", vids);
         renderResults(vids);
       } catch (e) {
         console.error("Search failed:", e);
+        document.getElementById("results").innerHTML = "<p>Search encountered an error. Check console.</p>";
       }
     }
   </script>
