@@ -15,8 +15,7 @@ function scoreVideo(video, state) {
 }
 
 function rankVideos(videos) {
-  const state = loadState();
-  return videos
-    .map(v => ({ ...v, score: scoreVideo(v, state) }))
-    .sort((a, b) => b.score - a.score);
+    // Sort by duration or platform if you like, or just return as is
+    return videos.sort((a, b) => b.duration - a.duration);
 }
+window.rankVideos = rankVideos;
