@@ -6,16 +6,22 @@ const ODYSEE_API = "https://api.odysee.com/api/v1/proxy";
 // REPLACE with your actual Cloudflare Worker URL
 const MY_PROXY = "https://intentional.legendm.workers.dev/";
 
+// Add 'async' right here!
 async function smartFetch(url, forceProxy = false) {
-    // 1. Try direct fetch first for Piped (which usually allows CORS)
     if (!forceProxy) {
         try {
-            const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+            const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
             if (res.ok) return await res.json();
         } catch (e) { 
-            console.log("Direct fetch blocked, using private proxy..."); 
+            console.warn("Direct fetch failed, trying proxy..."); 
         }
     }
+    // ... rest of code
+}
+
+async function searchAll(query) {
+    // ... rest of code
+}
 
     // 2. Use your private Cloudflare Worker
     try {
