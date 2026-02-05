@@ -1,66 +1,33 @@
-// --- 1. CONFIGURATION: EXTENDED INSTANCE LISTS ---
-const PIPED_INSTANCES = [
-    "https://api-piped.mha.fi",
-    "https://pipedapi.drgns.space",
-    "https://pipedapi.kavin.rocks",
-    "https://piped-api.lunar.icu",
-    "https://api.piped.projectsegfau.lt"
-];
-
-const INVIDIOUS_INSTANCES = [
-    "https://inv.nadeko.net",
-    "https://invidious.projectsegfau.lt",
-    "https://inv.tux.digital",
-    "https://invidious.nerdvpn.de",
-    "https://iv.ggtyler.dev",
-    "https://invidious.lunar.icu"
-];
-
+// --- 1. CONFIGURATION ---
+const PIPED_INSTANCES = ["https://api-piped.mha.fi", "https://pipedapi.drgns.space", "https://piped.video"];
+const INVIDIOUS_INSTANCES = ["https://inv.nadeko.net", "https://invidious.projectsegfau.lt", "https://inv.tux.digital"];
 const ODYSEE_API = "https://api.odysee.com/api/v1/proxy";
 
-// --- 2. MULTI-PROXY FALLBACK LOGIC ---
-async function fetchWithProxy(url) {
-    // List of proxies to try in order
-    const proxies = [
-        (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
-        (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
-        (u) => `https://thingproxy.freeboard.io/fetch/${u}`
-    ];
-
-    for (const proxy of proxies) {
+// --- 2. THE ULTIMATE FETCH (Proxy-Only-If-Needed) ---
+async function smartFetch(url, useProxy = false) {
+    if (!useProxy) {
         try {
-            const targetUrl = proxy(url);
-            const response = await fetch(targetUrl, { signal: AbortSignal.timeout(5000) });
-            
-            if (!response.ok) continue;
-
-            const data = await response.json();
-            
-            // AllOrigins wraps data in .contents, others might return it directly
-            const content = data.contents ? JSON.parse(data.contents) : data;
-            if (content) return content;
-        } catch (e) {
-            console.warn(`Proxy failed or timed out: ${proxy(url).split('?')[0]}`);
-            continue;
-        }
+            const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+            if (res.ok) return await res.json();
+        } catch (e) { console.warn("Direct fetch failed, trying proxy..."); }
     }
-    return null;
-}
 
-// --- 3. API SEARCHES ---
-async function updateStatus(id, status) {
-    const el = document.getElementById(`status-${id}`);
-    if (el) {
-        const icons = { loading: "⏳", success: "✅", fail: "❌" };
-        el.innerText = `${id.charAt(0).toUpperCase() + id.slice(1)}: ${icons[status]}`;
+    // Fallback Proxy: Using a more stable one for 2026
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    try {
+        const res = await fetch(proxyUrl);
+        const data = await res.json();
+        return data.contents ? JSON.parse(data.contents) : data;
+    } catch (e) {
+        return null;
     }
 }
 
+// --- 3. SEARCH APIS ---
 async function searchPiped(query) {
     updateStatus("piped", "loading");
-    // Try top 3 instances
-    for (let i = 0; i < 3; i++) {
-        const data = await fetchWithProxy(`${PIPED_INSTANCES[i]}/search?q=${encodeURIComponent(query)}&filter=videos`);
+    for (const inst of PIPED_INSTANCES) {
+        const data = await smartFetch(`${inst}/api/v1/search?q=${encodeURIComponent(query)}&filter=videos`, false);
         if (data?.items) {
             updateStatus("piped", "success");
             return data.items.map(v => ({
@@ -70,7 +37,7 @@ async function searchPiped(query) {
                 duration: v.duration,
                 thumbnail: v.thumbnail,
                 channel: v.uploaderName
-            }));
+            })).filter(v => v.id);
         }
     }
     updateStatus("piped", "fail");
@@ -79,8 +46,8 @@ async function searchPiped(query) {
 
 async function searchInvidious(query) {
     updateStatus("invidious", "loading");
-    for (let i = 0; i < 3; i++) {
-        const data = await fetchWithProxy(`${INVIDIOUS_INSTANCES[i]}/api/v1/search?q=${encodeURIComponent(query)}&type=video`);
+    for (const inst of INVIDIOUS_INSTANCES) {
+        const data = await smartFetch(`${inst}/api/v1/search?q=${encodeURIComponent(query)}&type=video`, true);
         if (Array.isArray(data)) {
             updateStatus("invidious", "success");
             return data.map(v => ({
@@ -99,7 +66,7 @@ async function searchInvidious(query) {
 
 async function searchOdysee(query) {
     updateStatus("odysee", "loading");
-    const data = await fetchWithProxy(`${ODYSEE_API}?method=claim_search&text=${encodeURIComponent(query)}&claim_type=stream&page_size=10`);
+    const data = await smartFetch(`${ODYSEE_API}?method=claim_search&text=${encodeURIComponent(query)}&claim_type=stream&page_size=10`, true);
     if (data?.result?.items) {
         updateStatus("odysee", "success");
         return data.result.items.map(v => ({
@@ -115,25 +82,50 @@ async function searchOdysee(query) {
     return [];
 }
 
-// --- 4. ENGINE ---
-async function searchAll(query) {
-    if (typeof saveSearchToHistory === 'function') saveSearchToHistory(query);
-    
-    // Fire all searches
-    const results = await Promise.all([
-        searchPiped(query),
-        searchInvidious(query),
-        searchOdysee(query)
-    ]);
-
-    const flat = results.flat();
-    const unique = new Map();
-    flat.forEach(v => {
-        if (v && v.id && !unique.has(v.id)) unique.set(v.id, v);
-    });
-
-    const videos = Array.from(unique.values()).filter(v => v.duration > 30);
-    return typeof rankVideos === 'function' ? rankVideos(videos) : videos;
+// --- 4. ENGINE & UI (Safely Exported) ---
+function saveSearchToHistory(query) {
+    if (!query) return;
+    let history = JSON.parse(localStorage.getItem("search_history") || "[]");
+    history = [query, ...history.filter(q => q !== query)].slice(0, 10);
+    localStorage.setItem("search_history", JSON.stringify(history));
+    renderHistory();
 }
 
-// ... Keep your renderResults and history functions below ...
+function renderHistory() {
+    const container = document.getElementById("search-history");
+    if (!container) return;
+    const history = JSON.parse(localStorage.getItem("search_history") || "[]");
+    container.innerHTML = history.map(q => `<span onclick="document.getElementById('q').value='${q}'; doSearch();" style="background:#eee; padding:5px 12px; border-radius:20px; cursor:pointer; font-size:12px;">${q}</span>`).join("");
+}
+
+function updateStatus(id, status) {
+    const el = document.getElementById(`status-${id}`);
+    if (el) el.innerText = `${id}: ${status === 'loading' ? '⏳' : status === 'success' ? '✅' : '❌'}`;
+}
+
+async function searchAll(query) {
+    saveSearchToHistory(query);
+    const results = await Promise.all([searchPiped(query), searchInvidious(query), searchOdysee(query)]);
+    const flat = results.flat();
+    const unique = new Map();
+    flat.forEach(v => { if (v && v.id && !unique.has(v.id)) unique.set(v.id, v); });
+    return Array.from(unique.values()).filter(v => v.duration > 30);
+}
+
+function renderResults(videos) {
+    const el = document.getElementById("results");
+    if (!el) return;
+    el.innerHTML = videos.length ? "" : "<p>No videos found.</p>";
+    videos.forEach(v => {
+        const card = document.createElement("div");
+        card.style = "border:1px solid #ddd; padding:10px; margin:10px 0; display:flex; gap:10px; cursor:pointer; border-radius:8px;";
+        card.onclick = () => window.location.href = `player.html?id=${v.id}&p=${v.platform}`;
+        card.innerHTML = `<img src="${v.thumbnail}" width="120" style="border-radius:4px;"><p><b>${v.title}</b><br><small>${v.channel} (${v.platform.toUpperCase()})</small></p>`;
+        el.appendChild(card);
+    });
+}
+
+// Global Init
+document.addEventListener("DOMContentLoaded", renderHistory);
+window.searchAll = searchAll;
+window.renderResults = renderResults;
