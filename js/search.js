@@ -4,7 +4,7 @@ const INVIDIOUS_INSTANCES = ["https://inv.nadeko.net", "https://invidious.projec
 const ODYSEE_API = "https://api.odysee.com/api/v1/proxy";
 
 // REPLACE with your actual Cloudflare Worker URL
-const MY_PROXY = "https://my-proxy.yourname.workers.dev/?url=";
+const MY_PROXY = "https://intentional.legendm.workers.dev/";
 
 async function smartFetch(url, forceProxy = false) {
     // 1. Try direct fetch first for Piped (which usually allows CORS)
