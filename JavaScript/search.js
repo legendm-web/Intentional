@@ -1,3 +1,4 @@
+console.log("search.js loaded");
 const INVIDIOUS_INSTANCES = [
   "https://yewtu.be",
   "https://vid.puffyan.us",
@@ -105,3 +106,5 @@ function renderResults(videos) {
     el.appendChild(card);
   });
 }
+window.searchAll = searchAll;
+window.renderResults = renderResults;
