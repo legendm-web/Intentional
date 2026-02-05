@@ -1,26 +1,27 @@
-console.log("search.js loaded");
-const INVIDIOUS_INSTANCES = [
-  "https://yewtu.be",
-  "https://vid.puffyan.us",
-  "https://inv.nadeko.net"
-];
-
+const INVIDIOUS_INSTANCES = ["https://yewtu.be", "https://vid.puffyan.us", "https://inv.nadeko.net"];
 const ODYSEE_API = "https://api.odysee.com/api/v1/proxy";
 
 async function searchAll(query) {
-  let results = [];
+  const results = [];
+  const PROXY = "https://corsproxy.io/?"; // Standard proxy to bypass CORS blocks
 
   // ---- Invidious (YouTube) search ----
-  for (const instance of INVIDIOUS_INSTANCES) {
+  const instances = [
+    "https://inv.tux.digital",
+    "https://invidious.nerdvpn.de",
+    "https://iv.ggtyler.dev"
+  ];
+
+  for (const instance of instances) {
     try {
-      const res = await fetch(
-        `${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video`
-      );
+      const apiUrl = `${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video`;
+      const res = await fetch(PROXY + encodeURIComponent(apiUrl));
+      
+      if (!res.ok) continue;
+      
       const data = await res.json();
-
       data.forEach(v => {
-        if (v.lengthSeconds < 60) return; // hide shorts
-
+        if (v.lengthSeconds < 60) return; 
         results.push({
           id: v.videoId,
           title: v.title,
@@ -31,80 +32,36 @@ async function searchAll(query) {
           topics: v.title.toLowerCase().split(" ")
         });
       });
-
-      break; // stop after first working instance
+      break; 
     } catch (e) {
-      console.warn("Invidious instance failed:", instance);
+      console.warn("Instance failed, trying next...");
     }
   }
 
   // ---- Odysee (LBRY) search ----
   try {
-    const res = await fetch(ODYSEE_API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        method: "claim_search",
-        params: {
-          text: query,
-          page_size: 10,
-          claim_type: "stream"
-        }
-      })
-    });
-
+    // We use a GET-based search to avoid complex CORS preflight issues
+    const odyseeUrl = `https://api.odysee.com/api/v1/proxy?method=claim_search&text=${encodeURIComponent(query)}&claim_type=stream&page_size=10`;
+    const res = await fetch(PROXY + encodeURIComponent(odyseeUrl));
     const data = await res.json();
 
-    data.result.items.forEach(v => {
-      if (!v.value?.video) return;
-      if (v.value.video.duration < 60) return;
-
-      results.push({
-        id: v.claim_id,
-        title: v.value.title,
-        channel: v.name,
-        thumbnail: v.value.thumbnail?.url,
-        duration: v.value.video.duration,
-        platform: "lbry",
-        topics: v.value.title.toLowerCase().split(" ")
+    if (data.result && data.result.items) {
+      data.result.items.forEach(v => {
+        if (!v.value?.video || v.value.video.duration < 60) return;
+        results.push({
+          id: v.claim_id,
+          title: v.value.title,
+          channel: v.name,
+          thumbnail: v.value.thumbnail?.url,
+          duration: v.value.video.duration,
+          platform: "lbry",
+          topics: v.value.title.toLowerCase().split(" ")
+        });
       });
-    });
+    }
   } catch (e) {
-    console.warn("Odysee search failed");
+    console.warn("Odysee search failed via proxy");
   }
 
   return rankVideos(results);
 }
-
-function renderResults(videos) {
-  const el = document.getElementById("results");
-  el.innerHTML = "";
-
-  if (!videos.length) {
-    el.innerHTML = "<p>No results found.</p>";
-    return;
-  }
-
-  videos.forEach(v => {
-    const card = document.createElement("div");
-    card.className = "card";
-
-    card.onclick = () => {
-      recordWatch(v);
-      window.location.href = `player.html?id=${v.id}&p=${v.platform}`;
-    };
-
-    card.innerHTML = `
-      <img src="${v.thumbnail}">
-      <div>
-        <span class="badge">${v.platform.toUpperCase()}</span>
-        <h3>${v.title}</h3>
-        <p>${v.channel}</p>
-      </div>
-    `;
-
-    el.appendChild(card);
-  });
-}
-window.searchAll = searchAll;
-window.renderResults = renderResults;
