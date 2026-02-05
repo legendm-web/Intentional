@@ -8,45 +8,31 @@
   <h1>What do you want to watch?</h1>
   <p class="subtitle">Nothing plays unless you choose it.</p>
 
-  <div class="search-container">
-    <input
-      id="q"
-      placeholder="Search YouTube & LBRY"
-      onkeydown="if (event.key === 'Enter') doSearch()"
-    />
-    <button onclick="doSearch()">Search</button>
+  <input id="q" placeholder="Search..." onkeydown="if (event.key === 'Enter') doSearch()" />
+  <button onclick="doSearch()">Search</button>
+  
+  <div id="search-history" style="margin-top: 10px; display: flex; gap: 8px;"></div>
+  
+  <div id="status-bar" style="margin: 10px 0; font-size: 0.8rem; display: flex; gap: 15px;">
+    <span id="status-piped">Piped: ⚪</span>
+    <span id="status-invidious">Invidious: ⚪</span>
+    <span id="status-odysee">Odysee: ⚪</span>
   </div>
 
-  <div style="margin-top: 15px;">
-    <div id="search-history" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;"></div>
-    <div id="status-bar" style="margin: 10px 0; font-size: 0.85rem; color: #555; display: flex; gap: 15px;">
-        <span id="status-piped">Piped: ⚪</span>
-        <span id="status-invidious">Invidious: ⚪</span>
-        <span id="status-odysee">Odysee: ⚪</span>
-    </div>
-  </div>
-
-  <div id="results"></div>
-
-  <script src="js/state.js"></script>
+  <div id="results"></div> <script src="js/state.js"></script>
   <script src="js/rank.js"></script>
   <script src="js/search.js"></script>
-  
+
   <script>
     async function doSearch() {
       const q = document.getElementById("q").value.trim();
       if (!q) return;
-
-      console.log("Searching for:", q);
-      // Clear previous results immediately to show loading
-      document.getElementById("results").innerHTML = "<p>Searching across platforms...</p>";
-
+      document.getElementById("results").innerHTML = "Searching...";
       try {
-        const vids = await searchAll(q);
-        renderResults(vids);
+        const vids = await window.searchAll(q); // Use window. to be safe
+        window.renderResults(vids);
       } catch (e) {
-        console.error("Search failed:", e);
-        document.getElementById("results").innerHTML = "<p>Search encountered an error. Check console.</p>";
+        console.error(e);
       }
     }
   </script>
