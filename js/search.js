@@ -3,12 +3,13 @@ const PIPED_INSTANCES = ["https://api-piped.mha.fi", "https://pipedapi.drgns.spa
 const INVIDIOUS_INSTANCES = ["https://inv.nadeko.net", "https://invidious.projectsegfau.lt", "https://inv.tux.digital"];
 const ODYSEE_API = "https://api.odysee.com/api/v1/proxy";
 
-// YOUR CLOUDFLARE PROXY
+// YOUR CLOUDFLARE PROXY URL
 const MY_PROXY = "https://intentional.legendm.workers.dev/?url=";
 
 // --- 2. THE SMART FETCH ENGINE ---
+// This handles Direct -> Private Proxy -> AllOrigins Fallback
 async function smartFetch(url, forceProxy = false) {
-    // Attempt 1: Direct fetch (for Piped/CORS friendly APIs)
+    // Attempt 1: Direct fetch (Fastest, works for Piped)
     if (!forceProxy) {
         try {
             const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
@@ -46,10 +47,10 @@ async function searchPiped(query) {
         if (data?.items) {
             updateStatus("piped", "success");
             return data.items.map(v => ({
-                id: v.url?.split("v=")[1],
+                id: v.url?.split("v=")[1] || v.videoId,
                 title: v.title,
                 platform: "yt",
-                duration: v.duration,
+                duration: v.duration || 0,
                 thumbnail: v.thumbnail,
                 channel: v.uploaderName
             })).filter(v => v.id);
@@ -69,7 +70,7 @@ async function searchInvidious(query) {
                 id: v.videoId,
                 title: v.title,
                 platform: "yt",
-                duration: v.lengthSeconds,
+                duration: v.lengthSeconds || 0,
                 thumbnail: v.videoThumbnails?.[0]?.url,
                 channel: v.author
             }));
@@ -110,43 +111,30 @@ function renderHistory() {
     const container = document.getElementById("search-history");
     if (!container) return;
     const history = JSON.parse(localStorage.getItem("search_history") || "[]");
-    container.innerHTML = history.map(q => `<span onclick="document.getElementById('q').value='${q}'; doSearch();" style="background:#eee; padding:5px 12px; border-radius:20px; cursor:pointer; font-size:12px; margin-right:5px; display:inline-block; margin-bottom:5px;">${q}</span>`).join("");
+    container.innerHTML = history.map(q => `
+        <span onclick="document.getElementById('q').value='${q}'; doSearch();" 
+              style="background:#eee; padding:5px 12px; border-radius:20px; cursor:pointer; font-size:12px; margin-right:5px; display:inline-block;">
+            ${q}
+        </span>`).join("");
 }
 
 function updateStatus(id, status) {
     const el = document.getElementById(`status-${id}`);
-    if (el) el.innerText = `${id}: ${status === 'loading' ? '⏳' : status === 'success' ? '✅' : '❌'}`;
+    if (el) {
+        const icons = { loading: "⏳", success: "✅", fail: "❌" };
+        el.innerText = `${id.charAt(0).toUpperCase() + id.slice(1)}: ${icons[status]}`;
+    }
 }
 
 async function searchAll(query) {
     saveSearchToHistory(query);
-    const results = await Promise.all([searchPiped(query), searchInvidious(query), searchOdysee(query)]);
+    const results = await Promise.all([
+        searchPiped(query),
+        searchInvidious(query),
+        searchOdysee(query)
+    ]);
+    
     const flat = results.flat();
     const unique = new Map();
-    flat.forEach(v => { if (v && v.id && !unique.has(v.id)) unique.set(v.id, v); });
-    
-    // Sort by duration or just return
-    const finalVids = Array.from(unique.values()).filter(v => v.duration > 30);
-    return typeof window.rankVideos === 'function' ? window.rankVideos(finalVids) : finalVids;
-}
-
-function renderResults(videos) {
-    const el = document.getElementById("results");
-    if (!el) return;
-    el.innerHTML = videos.length ? "" : "<p>No videos found.</p>";
-    videos.forEach(v => {
-        const card = document.createElement("div");
-        card.style = "border:1px solid #ddd; padding:10px; margin:10px 0; display:flex; gap:10px; cursor:pointer; border-radius:8px;";
-        card.onclick = () => {
-            if (typeof window.recordWatch === 'function') window.recordWatch(v);
-            window.location.href = `player.html?id=${v.id}&p=${v.platform}`;
-        };
-        card.innerHTML = `<img src="${v.thumbnail}" width="120" style="border-radius:4px; height:68px; object-fit:cover;"><p style="margin:0;"><b>${v.title}</b><br><small>${v.channel} (${v.platform.toUpperCase()})</small></p>`;
-        el.appendChild(card);
-    });
-}
-
-// Global Init
-document.addEventListener("DOMContentLoaded", renderHistory);
-window.searchAll = searchAll;
-window.renderResults = renderResults;
+    flat.forEach(v => { 
+        if (v && v.id && !unique.has(v.id)) unique.set(v.id, v
