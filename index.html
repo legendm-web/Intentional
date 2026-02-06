@@ -9,13 +9,13 @@
 </head>
 <body>
     <header class="main-header">
-        <div class="logo" onclick="location.reload()" style="cursor:pointer;">Intentional</div>
+        <div class="logo" onclick="location.reload()">Intentional</div>
         <div class="search-container">
             <input id="q" placeholder="Search" onkeydown="if (event.key === 'Enter') doSearch()" />
             <button onclick="doSearch()">🔍</button>
         </div>
         <div class="user-actions">
-            <button onclick="clearHistory()" style="background:transparent; font-size:12px;">Clear Data</button>
+            <button onclick="localStorage.clear(); location.reload();">Clear Data</button>
         </div>
     </header>
 
@@ -26,24 +26,19 @@
             </div>
             <div class="player-bar">
                 <button onclick="closePlayer()">✕ Close</button>
-                <button id="download-btn">⬇ Download</button>
+                <button id="download-btn">⬇ Source Link</button>
             </div>
         </div>
 
         <h2 id="section-title">Recommended</h2>
-        
-        <div id="results" class="video-grid">
-            </div>
+        <div id="results" class="video-grid"></div>
     </main>
 
     <script src="js/state.js"></script>
     <script src="js/search.js"></script>
     <script>
-        // Load recommendations on startup
         window.onload = () => {
-            if (typeof window.loadRecommendations === "function") {
-                window.loadRecommendations();
-            }
+            if (typeof loadRecommendations === "function") loadRecommendations();
         };
 
         async function doSearch() {
@@ -51,9 +46,9 @@
             if (!q) return;
             document.getElementById("section-title").innerText = "Search Results";
             const resultsEl = document.getElementById("results");
-            resultsEl.innerHTML = "<div class='loader'></div>";
-            const vids = await window.searchAll(q);
-            window.renderResults(vids);
+            resultsEl.innerHTML = "<div class='loader'>Searching...</div>";
+            const vids = await searchAll(q);
+            renderResults(vids);
         }
     </script>
 </body>
