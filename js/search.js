@@ -137,4 +137,39 @@ async function searchAll(query) {
     const flat = results.flat();
     const unique = new Map();
     flat.forEach(v => { 
-        if (v && v.id && !unique.has(v.id)) unique.set(v.id, v
+        if (v && v.id && !unique.has(v.id)) unique.set(v.id, v); 
+    });
+    
+    const finalVids = Array.from(unique.values()).filter(v => v.duration > 30);
+    // Apply ranking if rank.js is loaded
+    return typeof window.rankVideos === 'function' ? window.rankVideos(finalVids) : finalVids;
+}
+
+function renderResults(videos) {
+    const el = document.getElementById("results");
+    if (!el) return;
+    el.innerHTML = videos.length ? "" : "<p>No videos found across platforms.</p>";
+    
+    videos.forEach(v => {
+        const card = document.createElement("div");
+        card.style = "border:1px solid #ddd; padding:10px; margin:10px 0; display:flex; gap:10px; cursor:pointer; border-radius:8px;";
+        card.onclick = () => {
+            if (typeof window.recordWatch === 'function') window.recordWatch(v);
+            window.location.href = `player.html?id=${v.id}&p=${v.platform}`;
+        };
+        card.innerHTML = `
+            <img src="${v.thumbnail}" width="120" style="border-radius:4px; height:68px; object-fit:cover;">
+            <div style="overflow:hidden;">
+                <b style="display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${v.title}</b>
+                <small>${v.channel} (${v.platform.toUpperCase()})</small>
+            </div>
+        `;
+        el.appendChild(card);
+    });
+}
+
+// Global Initialization
+document.addEventListener("DOMContentLoaded", renderHistory);
+window.searchAll = searchAll;
+window.renderResults = renderResults;
+window.renderHistory = renderHistory;
