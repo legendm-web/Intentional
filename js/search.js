@@ -5,28 +5,15 @@ async function searchYouTube(query) {
     try {
         const response = await fetch(MY_PROXY + encodeURIComponent(targetUrl));
         const html = await response.text();
-
-        // Extract video details using a safer matching method
         const videoIds = [...html.matchAll(/"videoId":"([^"]+)"/g)].map(m => m[1]);
         const titles = [...html.matchAll(/"title":\{"runs":\[\{"text":"([^"]+)"/g)].map(m => m[1]);
-        
         let results = [];
-        const uniqueIds = [...new Set(videoIds)].slice(0, 15);
-
+        const uniqueIds = [...new Set(videoIds)].slice(0, 12);
         uniqueIds.forEach((id, i) => {
-            results.push({
-                id: id,
-                title: titles[i] || "YouTube Video",
-                thumbnail: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`,
-                platform: "yt",
-                channel: "YouTube"
-            });
+            results.push({ id, title: titles[i] || "Video", thumbnail: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`, platform: "yt", channel: "YouTube" });
         });
         return results;
-    } catch (e) {
-        console.error("YouTube Error:", e);
-        return [];
-    }
+    } catch (e) { return []; }
 }
 
 async function searchOdysee(query) {
@@ -34,56 +21,31 @@ async function searchOdysee(query) {
     try {
         const res = await fetch(MY_PROXY + encodeURIComponent(target));
         const data = await res.json();
-        if (data?.result?.items) {
-            return data.result.items.map(v => ({
-                id: v.claim_id, 
-                title: v.value.title, 
-                platform: "lbry",
-                thumbnail: v.value.thumbnail?.url, 
-                channel: v.name
-            }));
-        }
-    } catch (e) { 
-        return []; 
-    }
+        return data?.result?.items?.map(v => ({ id: v.claim_id, title: v.value.title, platform: "lbry", thumbnail: v.value.thumbnail?.url, channel: v.name })) || [];
+    } catch (e) { return []; }
 }
 
 async function searchAll(query) {
     const [yt, ody] = await Promise.all([searchYouTube(query), searchOdysee(query)]);
-    return [...yt, ...(ody || [])];
+    return [...yt, ...ody];
 }
 
 function renderResults(videos) {
     const el = document.getElementById("results");
-    el.innerHTML = videos.length ? "" : "<p>No results found. Please check your proxy deployment.</p>";
+    el.innerHTML = videos.length ? "" : "No results found.";
     videos.forEach(v => {
         const card = document.createElement("div");
         card.className = "video-card";
-        card.onclick = () => {
-            if (typeof recordWatch === "function") recordWatch(v);
-            playVideo(v.id, v.platform);
-        };
-        card.innerHTML = `
-            <img src="${v.thumbnail}">
-            <div class="video-info">
-                <b>${v.title}</b>
-                <small>${v.channel}</small>
-            </div>`;
+        card.onclick = () => { if (typeof recordWatch === "function") recordWatch(v); playVideo(v.id, v.platform); };
+        card.innerHTML = `<img src="${v.thumbnail}"><b>${v.title}</b><small>${v.channel}</small>`;
         el.appendChild(card);
     });
 }
 
 function playVideo(id, platform) {
     const container = document.getElementById("purify-player-container");
-    const iframe = document.getElementById("purify-iframe");
-    const dlBtn = document.getElementById("download-btn");
-
-    iframe.src = platform === "yt" 
-        ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&modestbranding=1` 
-        : `https://odysee.com/$/embed/${id}`;
-
+    document.getElementById("purify-iframe").src = platform === "yt" ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=1` : `https://odysee.com/$/embed/${id}`;
     container.style.display = "block";
-    dlBtn.onclick = () => window.open(platform === "yt" ? `https://www.youtube.com/watch?v=${id}` : "", "_blank");
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
