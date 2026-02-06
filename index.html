@@ -3,19 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Intentional - Home</title>
+    <title>Intentional - Purify</title>
     <link rel="stylesheet" href="css/style.css">
-    <link rel="icon" href="data:,">
 </head>
 <body>
     <header class="main-header">
         <div class="logo" onclick="location.reload()">Intentional</div>
         <div class="search-container">
-            <input id="q" placeholder="Search" onkeydown="if (event.key === 'Enter') doSearch()" />
+            <input id="q" placeholder="Search without distractions..." onkeydown="if (event.key === 'Enter') doSearch()" />
             <button onclick="doSearch()">🔍</button>
         </div>
         <div class="user-actions">
-            <button onclick="localStorage.clear(); location.reload();">Clear Data</button>
+            <button onclick="localStorage.clear(); location.reload();">Reset Engine</button>
         </div>
     </header>
 
@@ -25,8 +24,7 @@
                 <iframe id="purify-iframe" src="" allowfullscreen allow="autoplay"></iframe>
             </div>
             <div class="player-bar">
-                <button onclick="closePlayer()">✕ Close</button>
-                <button id="download-btn">⬇ Source Link</button>
+                <button onclick="closePlayer()">✕ Close Player</button>
             </div>
         </div>
 
@@ -37,16 +35,12 @@
     <script src="js/state.js"></script>
     <script src="js/search.js"></script>
     <script>
-        window.onload = () => {
-            if (typeof loadRecommendations === "function") loadRecommendations();
-        };
-
+        window.onload = () => { if (typeof loadRecommendations === "function") loadRecommendations(); };
         async function doSearch() {
             const q = document.getElementById("q").value.trim();
             if (!q) return;
             document.getElementById("section-title").innerText = "Search Results";
-            const resultsEl = document.getElementById("results");
-            resultsEl.innerHTML = "<div class='loader'>Searching...</div>";
+            document.getElementById("results").innerHTML = "Searching...";
             const vids = await searchAll(q);
             renderResults(vids);
         }
