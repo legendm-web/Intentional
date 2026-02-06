@@ -1,36 +1,36 @@
-// --- APP STATE & MEMORY ---
+// --- LOCAL DATA ENGINE ---
 
-// Save a search term to local storage
-function saveToHistory(query) {
-    if (!query) return;
-    let history = JSON.parse(localStorage.getItem("search_history") || "[]");
+// 1. Record a watch and extract keywords from the title
+function recordWatch(video) {
+    let history = JSON.parse(localStorage.getItem("watch_history") || "[]");
+    history.push(video);
+    localStorage.setItem("watch_history", JSON.stringify(history.slice(-20))); // Keep last 20
+
+    // Extract keywords (longer than 3 chars, skip common words)
+    const words = video.title.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(' ');
+    let interests = JSON.parse(localStorage.getItem("user_interests") || "{}");
     
-    // Add new query to the start, remove duplicates, and limit to 5 items
-    history = [query, ...history.filter(q => q !== query)].slice(0, 5);
-    
-    localStorage.setItem("search_history", JSON.stringify(history));
-    renderHistory();
+    words.forEach(word => {
+        if (word.length > 3) {
+            interests[word] = (interests[word] || 0) + 1;
+        }
+    });
+    localStorage.setItem("user_interests", JSON.stringify(interests));
 }
 
-// Display the history chips on the screen
-function renderHistory() {
-    const container = document.getElementById("search-history");
-    if (!container) return;
-    
-    const history = JSON.parse(localStorage.getItem("search_history") || "[]");
-    
-    if (history.length === 0) {
-        container.innerHTML = "";
-        return;
-    }
-
-    container.innerHTML = history.map(q => `
-        <span onclick="document.getElementById('q').value='${q}'; doSearch();" 
-              style="background:#333; color:#aaa; padding:5px 12px; border-radius:20px; cursor:pointer; font-size:12px;">
-            ${q}
-        </span>
-    `).join("");
+// 2. Get the top interest to use as a recommendation search
+function getTopInterest() {
+    const interests = JSON.parse(localStorage.getItem("user_interests") || "{}");
+    return Object.keys(interests).sort((a, b) => interests[b] - interests[a])[0] || "Apex Legends";
 }
 
-// Run history render when the page loads
-document.addEventListener("DOMContentLoaded", renderHistory);
+function clearHistory() {
+    localStorage.clear();
+    location.reload();
+}
+
+async function loadRecommendations() {
+    const topic = getTopInterest();
+    const vids = await window.searchAll(topic);
+    window.renderResults(vids);
+}
