@@ -1,36 +1,35 @@
-// --- 1. CONFIGURATION ---
-// We switch to a more stable proxy specifically for Odysee
-const PROXY = "https://api.allorigins.win/get?url=";
+// REPLACE with your actual Worker URL
+const MY_PROXY = "https://intentional.legendm.workers.dev/?url=";
 
-// --- 2. SEARCH ENGINES ---
 async function searchYouTube(query) {
     updateStatus("piped", "loading");
-    
-    // We use the YouTube Suggestion API - it's much more stable than scraping the results page
-    const suggestUrl = `https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=${encodeURIComponent(query)}`;
+    // Using the search results page via YOUR proxy
+    const targetUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&sp=EgIQAQ%253D%253D`;
     
     try {
-        // Step 1: Get search suggestions
-        const res = await fetch("https://corsproxy.io/?" + encodeURIComponent(suggestUrl));
-        const data = await res.json();
-        const suggestions = data[1] || [];
-        
-        // Step 2: Since scraping is blocked, we will generate "Virtual" cards that 
-        // link to a search on a privacy-friendly YouTube frontend (Piped)
-        // This is a common 'Purify' trick to avoid 403 blocks.
-        
-        let results = suggestions.slice(0, 10).map((term, index) => ({
-            id: term, // Using the term as a trigger
-            title: term,
-            thumbnail: `https://picsum.photos/seed/${index}/320/180`, // Placeholder until we get API access
-            channel: "Suggested Search",
-            platform: "yt-search"
-        }));
+        const response = await fetch(MY_PROXY + encodeURIComponent(targetUrl));
+        const html = await response.text();
 
+        // Extracting data from the HTML
+        const videoRegex = /"videoRenderer":\{"videoId":"([^"]+)","thumbnail":\{"thumbnails":\[\{"url":"([^"]+)"/g;
+        const titleRegex = /"title":\{"runs":\[\{"text":"([^"]+)"/g;
+        
+        let results = [], match, tMatch, count = 0;
+        while ((match = videoRegex.exec(html)) !== null && count < 15) {
+            results.push({ id: match[1], thumbnail: match[2], platform: "yt" });
+            count++;
+        }
+        
+        let i = 0;
+        while ((tMatch = titleRegex.exec(html)) !== null && i < results.length) {
+            results[i].title = tMatch[1].replace(/\\u0026/g, '&');
+            results[i].channel = "YouTube";
+            i++;
+        }
+        
         updateStatus("piped", "success");
         return results;
     } catch (e) {
-        console.error("YT Error:", e);
         updateStatus("piped", "fail");
         return [];
     }
@@ -39,53 +38,32 @@ async function searchYouTube(query) {
 async function searchOdysee(query) {
     updateStatus("odysee", "loading");
     const target = `https://api.odysee.com/api/v1/proxy?method=claim_search&text=${encodeURIComponent(query)}&claim_type=stream&page_size=10`;
-    
     try {
-        const res = await fetch(PROXY + encodeURIComponent(target));
-        const json = await res.json();
-        const data = JSON.parse(json.contents);
-        
+        const res = await fetch(MY_PROXY + encodeURIComponent(target));
+        const data = await res.json();
         if (data?.result?.items) {
             updateStatus("odysee", "success");
             return data.result.items.map(v => ({
-                id: v.claim_id, 
-                title: v.value.title, 
-                platform: "lbry",
-                thumbnail: v.value.thumbnail?.url, 
-                channel: v.name
+                id: v.claim_id, title: v.value.title, platform: "lbry",
+                thumbnail: v.value.thumbnail?.url, channel: v.name
             }));
         }
-    } catch (e) { 
-        updateStatus("odysee", "fail"); 
-    }
+    } catch (e) { updateStatus("odysee", "fail"); }
     return [];
 }
 
-// --- 3. UI & PLAYER LOGIC ---
+// UI LOGIC
 function playVideo(id, platform) {
     const container = document.getElementById("purify-player-container");
     const iframe = document.getElementById("purify-iframe");
     const dlBtn = document.getElementById("download-btn");
 
-    if (platform === "yt-search") {
-        // If they click a suggested search, just search for it for real
-        document.getElementById("q").value = id;
-        doSearch();
-        return;
-    }
+    iframe.src = platform === "yt" 
+        ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&modestbranding=1` 
+        : `https://odysee.com/$/embed/${id}`;
 
-    let url = "";
-    if (platform === "yt") {
-        url = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&modestbranding=1&rel=0`;
-        dlBtn.onclick = () => window.open(`https://www.youtube.com/watch?v=${id}`, "_blank");
-        dlBtn.style.display = "inline-block";
-    } else {
-        url = `https://odysee.com/$/embed/${id}`;
-        dlBtn.style.display = "none";
-    }
-
-    iframe.src = url;
     container.style.display = "block";
+    dlBtn.onclick = () => window.open(platform === "yt" ? `https://www.youtube.com/watch?v=${id}` : "", "_blank");
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -103,19 +81,18 @@ function updateStatus(id, status) {
 }
 
 async function searchAll(query) {
-    if (typeof recordWatch === "function") { /* Keyword tracking happens here */ }
     const [yt, ody] = await Promise.all([searchYouTube(query), searchOdysee(query)]);
     return [...yt, ...ody];
 }
 
 function renderResults(videos) {
     const el = document.getElementById("results");
-    el.innerHTML = videos.length ? "" : "<p>No results found. Try a different search.</p>";
+    el.innerHTML = videos.length ? "" : "<p>No results found.</p>";
     videos.forEach(v => {
         const card = document.createElement("div");
         card.className = "video-card";
         card.onclick = () => {
-            if (typeof recordWatch === "function" && v.platform !== "yt-search") recordWatch(v);
+            if (typeof recordWatch === "function") recordWatch(v);
             playVideo(v.id, v.platform);
         };
         card.innerHTML = `<img src="${v.thumbnail}"><div><b>${v.title}</b><br><small>${v.channel}</small></div>`;
