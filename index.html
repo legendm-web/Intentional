@@ -1,60 +1,51 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Intentional</title>
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="icon" href="data:,">
+    <title>Intentional Player</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="data:,">
 </head>
 <body>
-  <h1>What do you want to watch?</h1>
-  <p class="subtitle">Nothing plays unless you choose it.</p>
+    <h1>Intentional</h1>
+    <p class="subtitle">Search, click, and watch without distractions.</p>
 
-  <div class="search-box">
-    <input id="q" placeholder="Search YouTube & Odysee..." onkeydown="if (event.key === 'Enter') doSearch()" />
-    <button onclick="doSearch()">Search</button>
-  </div>
-  
-  <div id="search-history" style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;"></div>
-  
-  <div id="status-bar" style="margin: 10px 0; font-size: 0.8rem; display: flex; gap: 15px; color: #666;">
-    <span id="status-piped">Piped: ⚪</span>
-    <span id="status-invidious">Invidious: ⚪</span>
-    <span id="status-odysee">Odysee: ⚪</span>
-  </div>
+    <div id="purify-player-container" style="display:none; max-width: 900px; margin: 0 auto 30px auto;">
+        <div class="video-wrapper">
+            <iframe id="purify-iframe" src="" allowfullscreen allow="autoplay"></iframe>
+        </div>
+        <div class="player-controls" style="margin-top: 15px; display: flex; gap: 10px; justify-content: center;">
+            <button onclick="closePlayer()" style="background: #444;">✕ Close Player</button>
+            <button id="download-btn" style="background: #cc0000;">⬇ Get Download Link</button>
+        </div>
+    </div>
 
-  <div id="results"></div> 
-
-  <script src="js/state.js"></script>
-  <script src="js/rank.js"></script>
-  <script src="js/search.js"></script>
-
-  <script>
-    async function doSearch() {
-      const q = document.getElementById("q").value.trim();
-      if (!q) return;
-
-      const resultsEl = document.getElementById("results");
-      resultsEl.innerHTML = "<p>Connecting to proxy and fetching videos...</p>";
-
-      try {
-        // Ensure the search.js script is fully functional
-        if (typeof window.searchAll === "function") {
-          const vids = await window.searchAll(q);
-          window.renderResults(vids);
-        } else {
-          resultsEl.innerHTML = "<p style='color:red;'>Error: Search logic (search.js) is broken or missing. Check the console for SyntaxErrors.</p>";
-        }
-      } catch (e) {
-        console.error("Search execution failed:", e);
-        resultsEl.innerHTML = "<p style='color:red;'>Search failed. This is likely a proxy or connection issue.</p>";
-      }
-    }
+    <div class="search-box">
+        <input id="q" placeholder="Search for videos..." onkeydown="if (event.key === 'Enter') doSearch()" />
+        <button onclick="doSearch()">Search</button>
+    </div>
     
-    // Helper to allow history chips to trigger search
-    function clearHistory() {
-        localStorage.removeItem("search_history");
-        if (typeof window.renderHistory === 'function') window.renderHistory();
-    }
-  </script>
+    <div id="status-bar" style="margin: 10px 0; font-size: 0.8rem; display: flex; gap: 15px; justify-content: center; color: #666;">
+        <span id="status-piped">YouTube: ⚪</span>
+        <span id="status-odysee">Odysee: ⚪</span>
+    </div>
+
+    <div id="results"></div> 
+
+    <script src="js/state.js"></script>
+    <script src="js/search.js"></script>
+
+    <script>
+        async function doSearch() {
+            const q = document.getElementById("q").value.trim();
+            if (!q) return;
+            const resultsEl = document.getElementById("results");
+            resultsEl.innerHTML = "<p>Searching...</p>";
+
+            if (typeof window.searchAll === "function") {
+                const vids = await window.searchAll(q);
+                window.renderResults(vids);
+            }
+        }
+    </script>
 </body>
 </html>
