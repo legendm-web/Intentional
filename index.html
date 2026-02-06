@@ -1,30 +1,34 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Intentional Player</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intentional - Purify Player</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="icon" href="data:,">
 </head>
 <body>
     <h1>Intentional</h1>
-    <p class="subtitle">Search, click, and watch without distractions.</p>
+    <p class="subtitle">Search and watch without the distractions.</p>
 
     <div id="purify-player-container" style="display:none; max-width: 900px; margin: 0 auto 30px auto;">
         <div class="video-wrapper">
             <iframe id="purify-iframe" src="" allowfullscreen allow="autoplay"></iframe>
         </div>
         <div class="player-controls" style="margin-top: 15px; display: flex; gap: 10px; justify-content: center;">
-            <button onclick="closePlayer()" style="background: #444;">✕ Close Player</button>
-            <button id="download-btn" style="background: #cc0000;">⬇ Get Download Link</button>
+            <button onclick="closePlayer()" style="background: #444; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">✕ Close Player</button>
+            <button id="download-btn" style="background: #cc0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">⬇ Get Download Link</button>
         </div>
     </div>
 
     <div class="search-box">
-        <input id="q" placeholder="Search for videos..." onkeydown="if (event.key === 'Enter') doSearch()" />
+        <input id="q" placeholder="What do you want to watch?" onkeydown="if (event.key === 'Enter') doSearch()" />
         <button onclick="doSearch()">Search</button>
     </div>
     
-    <div id="status-bar" style="margin: 10px 0; font-size: 0.8rem; display: flex; gap: 15px; justify-content: center; color: #666;">
+    <div id="search-history" style="margin-top: 10px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;"></div>
+
+    <div id="status-bar" style="margin: 15px 0; font-size: 0.8rem; display: flex; gap: 15px; justify-content: center; color: #666;">
         <span id="status-piped">YouTube: ⚪</span>
         <span id="status-odysee">Odysee: ⚪</span>
     </div>
@@ -38,8 +42,9 @@
         async function doSearch() {
             const q = document.getElementById("q").value.trim();
             if (!q) return;
+            
             const resultsEl = document.getElementById("results");
-            resultsEl.innerHTML = "<p>Searching...</p>";
+            resultsEl.innerHTML = "<p>Searching platforms...</p>";
 
             if (typeof window.searchAll === "function") {
                 const vids = await window.searchAll(q);
