@@ -1,26 +1,33 @@
-body { font-family: sans-serif; background: #1a1a1a; color: white; text-align: center; padding: 20px; }
-.subtitle { color: #888; margin-bottom: 30px; }
-.search-box input { padding: 12px; width: 300px; border-radius: 25px; border: none; }
-.search-box button { padding: 12px 20px; border-radius: 25px; border: none; background: #cc0000; color: white; cursor: pointer; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #121212; color: #e0e0e0; text-align: center; padding: 20px; line-height: 1.6; }
+h1 { color: #fff; margin-bottom: 5px; }
+.subtitle { color: #888; margin-bottom: 30px; font-size: 0.9rem; }
 
-/* The Video Wrapper for 16:9 ratio */
+.search-box { margin-bottom: 20px; }
+.search-box input { padding: 12px 20px; width: 300px; border-radius: 25px; border: 1px solid #333; background: #1e1e1e; color: white; outline: none; }
+.search-box button { padding: 12px 25px; border-radius: 25px; border: none; background: #cc0000; color: white; cursor: pointer; font-weight: bold; margin-left: 10px; }
+.search-box button:hover { background: #ff0000; }
+
+/* Purify Player Wrapper */
 .video-wrapper {
     position: relative;
-    padding-bottom: 56.25%;
+    padding-bottom: 56.25%; /* 16:9 aspect ratio */
     height: 0;
     overflow: hidden;
     background: #000;
     border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
 }
-.video-wrapper iframe {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;
-}
+.video-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
 
-/* Video Result Cards */
+/* Video Cards */
+#results { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 20px; }
 .video-card {
-    display: flex; gap: 15px; background: #2a2a2a; padding: 10px; 
-    margin: 10px auto; border-radius: 8px; cursor: pointer; 
-    max-width: 600px; text-align: left; transition: 0.2s;
+    display: flex; gap: 15px; background: #1e1e1e; padding: 12px; 
+    border-radius: 10px; cursor: pointer; width: 100%; max-width: 600px; 
+    text-align: left; transition: transform 0.2s, background 0.2s;
+    border: 1px solid #2a2a2a;
 }
-.video-card:hover { background: #333; }
-.video-card img { width: 120px; border-radius: 4px; object-fit: cover; }
+.video-card:hover { background: #2a2a2a; transform: translateY(-2px); }
+.video-card img { width: 140px; aspect-ratio: 16/9; border-radius: 6px; object-fit: cover; }
+.video-card b { display: block; color: #fff; margin-bottom: 4px; font-size: 1rem; }
+.video-card small { color: #aaa; }
