@@ -1,166 +1,117 @@
 // --- 1. CONFIGURATION ---
-const PIPED_INSTANCES = ["https://api-piped.mha.fi", "https://pipedapi.drgns.space", "https://piped.video"];
-const INVIDIOUS_INSTANCES = ["https://inv.nadeko.net", "https://invidious.projectsegfau.lt", "https://inv.tux.digital"];
-const ODYSEE_API = "https://api.odysee.com/api/v1/proxy";
+const PROXY = "https://api.allorigins.win/get?url=";
 
-// YOUR CLOUDFLARE PROXY URL
-const MY_PROXY = "https://intentional.legendm.workers.dev/?url=";
-
-// --- 2. THE SMART FETCH ENGINE ---
-// This handles Direct -> Private Proxy -> AllOrigins Fallback
-async function smartFetch(url, forceProxy = false) {
-    // Attempt 1: Direct fetch (Fastest, works for Piped)
-    if (!forceProxy) {
-        try {
-            const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
-            if (res.ok) return await res.json();
-        } catch (e) {
-            console.warn("Direct fetch failed, trying private proxy...");
-        }
-    }
-
-    // Attempt 2: Your Private Cloudflare Worker
-    try {
-        const res = await fetch(MY_PROXY + encodeURIComponent(url));
-        if (res.ok) return await res.json();
-    } catch (e) {
-        console.warn("Private proxy failed, trying AllOrigins fallback...");
-    }
-
-    // Attempt 3: AllOrigins Public Fallback
-    try {
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-        const res = await fetch(proxyUrl);
-        const data = await res.json();
-        return data.contents ? JSON.parse(data.contents) : data;
-    } catch (e) {
-        console.error("All fetch methods failed for:", url);
-        return null;
-    }
-}
-
-// --- 3. SEARCH APIS ---
-async function searchPiped(query) {
+// --- 2. SEARCH ENGINE ---
+async function searchYouTube(query) {
     updateStatus("piped", "loading");
-    for (const inst of PIPED_INSTANCES) {
-        const data = await smartFetch(`${inst}/api/v1/search?q=${encodeURIComponent(query)}&filter=videos`, false);
-        if (data?.items) {
-            updateStatus("piped", "success");
-            return data.items.map(v => ({
-                id: v.url?.split("v=")[1] || v.videoId,
-                title: v.title,
-                platform: "yt",
-                duration: v.duration || 0,
-                thumbnail: v.thumbnail,
-                channel: v.uploaderName
-            })).filter(v => v.id);
-        }
-    }
-    updateStatus("piped", "fail");
-    return [];
-}
+    
+    // We use the YouTube search results page directly through a proxy
+    // This is more reliable than small, dying Invidious instances
+    const targetUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&sp=EgIQAQ%253D%253D`;
+    
+    try {
+        const response = await fetch(PROXY + encodeURIComponent(targetUrl));
+        const json = await response.json();
+        const html = json.contents;
 
-async function searchInvidious(query) {
-    updateStatus("invidious", "loading");
-    for (const inst of INVIDIOUS_INSTANCES) {
-        const data = await smartFetch(`${inst}/api/v1/search?q=${encodeURIComponent(query)}&type=video`, true);
-        if (Array.isArray(data)) {
-            updateStatus("invidious", "success");
-            return data.map(v => ({
-                id: v.videoId,
-                title: v.title,
-                platform: "yt",
-                duration: v.lengthSeconds || 0,
-                thumbnail: v.videoThumbnails?.[0]?.url,
-                channel: v.author
-            }));
+        // Extracting video data using Regex from the YouTube HTML
+        const videoRegex = /"videoRenderer":\{"videoId":"([^"]+)","thumbnail":\{"thumbnails":\[\{"url":"([^"]+)"/g;
+        const titleRegex = /"title":\{"runs":\[\{"text":"([^"]+)"/g;
+        
+        let results = [];
+        let match;
+        let count = 0;
+
+        // This loops through the HTML and pulls out IDs and Thumbnails
+        while ((match = videoRegex.exec(html)) !== null && count < 15) {
+            results.push({
+                id: match[1],
+                thumbnail: match[2],
+                platform: "yt"
+            });
+            count++;
         }
+
+        // Add Titles (Simple match alignment)
+        let titleMatch;
+        let i = 0;
+        while ((titleMatch = titleRegex.exec(html)) !== null && i < results.length) {
+            results[i].title = titleMatch[1].replace(/\\u0026/g, '&');
+            results[i].channel = "YouTube";
+            results[i].duration = 0; // Duration is harder to parse, setting to 0
+            i++;
+        }
+
+        updateStatus("piped", "success");
+        return results;
+    } catch (e) {
+        console.error("YouTube search failed", e);
+        updateStatus("piped", "fail");
+        return [];
     }
-    updateStatus("invidious", "fail");
-    return [];
 }
 
 async function searchOdysee(query) {
     updateStatus("odysee", "loading");
-    const data = await smartFetch(`${ODYSEE_API}?method=claim_search&text=${encodeURIComponent(query)}&claim_type=stream&page_size=10`, true);
-    if (data?.result?.items) {
-        updateStatus("odysee", "success");
-        return data.result.items.map(v => ({
-            id: v.claim_id,
-            title: v.value.title,
-            platform: "lbry",
-            duration: v.value.video?.duration || 0,
-            thumbnail: v.value.thumbnail?.url,
-            channel: v.name
-        }));
+    const target = `https://api.odysee.com/api/v1/proxy?method=claim_search&text=${encodeURIComponent(query)}&claim_type=stream&page_size=10`;
+    
+    try {
+        const res = await fetch(PROXY + encodeURIComponent(target));
+        const json = await res.json();
+        const data = JSON.parse(json.contents);
+        
+        if (data?.result?.items) {
+            updateStatus("odysee", "success");
+            return data.result.items.map(v => ({
+                id: v.claim_id,
+                title: v.value.title,
+                platform: "lbry",
+                thumbnail: v.value.thumbnail?.url,
+                channel: v.name,
+                duration: 100 // placeholder
+            }));
+        }
+    } catch (e) {
+        updateStatus("odysee", "fail");
     }
-    updateStatus("odysee", "fail");
     return [];
 }
 
-// --- 4. ENGINE & UI ---
-function saveSearchToHistory(query) {
-    if (!query) return;
-    let history = JSON.parse(localStorage.getItem("search_history") || "[]");
-    history = [query, ...history.filter(q => q !== query)].slice(0, 10);
-    localStorage.setItem("search_history", JSON.stringify(history));
-    renderHistory();
-}
-
-function renderHistory() {
-    const container = document.getElementById("search-history");
-    if (!container) return;
-    const history = JSON.parse(localStorage.getItem("search_history") || "[]");
-    container.innerHTML = history.map(q => `
-        <span onclick="document.getElementById('q').value='${q}'; doSearch();" 
-              style="background:#eee; padding:5px 12px; border-radius:20px; cursor:pointer; font-size:12px; margin-right:5px; display:inline-block;">
-            ${q}
-        </span>`).join("");
-}
-
+// --- 3. UI ENGINE ---
 function updateStatus(id, status) {
     const el = document.getElementById(`status-${id}`);
     if (el) {
         const icons = { loading: "⏳", success: "✅", fail: "❌" };
-        el.innerText = `${id.charAt(0).toUpperCase() + id.slice(1)}: ${icons[status]}`;
+        el.innerText = `${id}: ${icons[status]}`;
     }
 }
 
 async function searchAll(query) {
-    saveSearchToHistory(query);
-    const results = await Promise.all([
-        searchPiped(query),
-        searchInvidious(query),
+    // Clear old status
+    document.getElementById("status-piped").innerText = "YouTube: ⏳";
+    document.getElementById("status-odysee").innerText = "Odysee: ⏳";
+
+    const [ytResults, odyseeResults] = await Promise.all([
+        searchYouTube(query),
         searchOdysee(query)
     ]);
-    
-    const flat = results.flat();
-    const unique = new Map();
-    flat.forEach(v => { 
-        if (v && v.id && !unique.has(v.id)) unique.set(v.id, v); 
-    });
-    
-    const finalVids = Array.from(unique.values()).filter(v => v.duration > 30);
-    // Apply ranking if rank.js is loaded
-    return typeof window.rankVideos === 'function' ? window.rankVideos(finalVids) : finalVids;
+
+    return [...ytResults, ...odyseeResults];
 }
 
 function renderResults(videos) {
     const el = document.getElementById("results");
     if (!el) return;
-    el.innerHTML = videos.length ? "" : "<p>No videos found across platforms.</p>";
-    
+    el.innerHTML = videos.length ? "" : "<p>No results found.</p>";
+
     videos.forEach(v => {
         const card = document.createElement("div");
-        card.style = "border:1px solid #ddd; padding:10px; margin:10px 0; display:flex; gap:10px; cursor:pointer; border-radius:8px;";
-        card.onclick = () => {
-            if (typeof window.recordWatch === 'function') window.recordWatch(v);
-            window.location.href = `player.html?id=${v.id}&p=${v.platform}`;
-        };
+        card.className = "video-card";
+        card.onclick = () => window.location.href = `player.html?id=${v.id}&p=${v.platform}`;
         card.innerHTML = `
-            <img src="${v.thumbnail}" width="120" style="border-radius:4px; height:68px; object-fit:cover;">
-            <div style="overflow:hidden;">
-                <b style="display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${v.title}</b>
+            <img src="${v.thumbnail}" width="160">
+            <div>
+                <p><b>${v.title}</b></p>
                 <small>${v.channel} (${v.platform.toUpperCase()})</small>
             </div>
         `;
@@ -168,8 +119,5 @@ function renderResults(videos) {
     });
 }
 
-// Global Initialization
-document.addEventListener("DOMContentLoaded", renderHistory);
 window.searchAll = searchAll;
 window.renderResults = renderResults;
-window.renderHistory = renderHistory;
