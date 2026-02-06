@@ -87,15 +87,27 @@ async function searchAll(query) {
 
 function renderResults(videos) {
     const el = document.getElementById("results");
-    el.innerHTML = videos.length ? "" : "<p>No results found.</p>";
+    el.innerHTML = videos.length ? "" : "<p>No results found. Try searching for something else!</p>";
+    
     videos.forEach(v => {
         const card = document.createElement("div");
         card.className = "video-card";
+        
+        // When clicked, record the data for future recommendations and play
         card.onclick = () => {
             if (typeof recordWatch === "function") recordWatch(v);
             playVideo(v.id, v.platform);
         };
-        card.innerHTML = `<img src="${v.thumbnail}"><div><b>${v.title}</b><br><small>${v.channel}</small></div>`;
+
+        card.innerHTML = `
+            <div class="thumb-container">
+                <img src="${v.thumbnail}">
+            </div>
+            <div class="video-info">
+                <b>${v.title}</b>
+                <small>${v.channel}</small>
+            </div>
+        `;
         el.appendChild(card);
     });
 }
