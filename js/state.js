@@ -1,12 +1,7 @@
 function recordWatch(video) {
     let interests = JSON.parse(localStorage.getItem("user_interests") || "{}");
     const words = video.title.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(' ');
-    
-    words.forEach(word => {
-        if (word.length > 4) { // Only track meaningful words
-            interests[word] = (interests[word] || 0) + 1;
-        }
-    });
+    words.forEach(word => { if (word.length > 4) interests[word] = (interests[word] || 0) + 1; });
     localStorage.setItem("user_interests", JSON.stringify(interests));
 }
 
