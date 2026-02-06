@@ -3,53 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Intentional - Purify Player</title>
+    <title>Intentional - Home</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="icon" href="data:,">
 </head>
 <body>
-    <h1>Intentional</h1>
-    <p class="subtitle">Search and watch without the distractions.</p>
-
-    <div id="purify-player-container" style="display:none; max-width: 900px; margin: 0 auto 30px auto;">
-        <div class="video-wrapper">
-            <iframe id="purify-iframe" src="" allowfullscreen allow="autoplay"></iframe>
+    <header class="main-header">
+        <div class="logo" onclick="location.reload()" style="cursor:pointer;">Intentional</div>
+        <div class="search-container">
+            <input id="q" placeholder="Search" onkeydown="if (event.key === 'Enter') doSearch()" />
+            <button onclick="doSearch()">🔍</button>
         </div>
-        <div class="player-controls" style="margin-top: 15px; display: flex; gap: 10px; justify-content: center;">
-            <button onclick="closePlayer()" style="background: #444; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">✕ Close Player</button>
-            <button id="download-btn" style="background: #cc0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">⬇ Get Download Link</button>
+        <div class="user-actions">
+            <button onclick="clearHistory()" style="background:transparent; font-size:12px;">Clear Data</button>
         </div>
-    </div>
+    </header>
 
-    <div class="search-box">
-        <input id="q" placeholder="What do you want to watch?" onkeydown="if (event.key === 'Enter') doSearch()" />
-        <button onclick="doSearch()">Search</button>
-    </div>
-    
-    <div id="search-history" style="margin-top: 10px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;"></div>
+    <main class="content">
+        <div id="purify-player-container" style="display:none;">
+            <div class="video-wrapper">
+                <iframe id="purify-iframe" src="" allowfullscreen allow="autoplay"></iframe>
+            </div>
+            <div class="player-bar">
+                <button onclick="closePlayer()">✕ Close</button>
+                <button id="download-btn">⬇ Download</button>
+            </div>
+        </div>
 
-    <div id="status-bar" style="margin: 15px 0; font-size: 0.8rem; display: flex; gap: 15px; justify-content: center; color: #666;">
-        <span id="status-piped">YouTube: ⚪</span>
-        <span id="status-odysee">Odysee: ⚪</span>
-    </div>
-
-    <div id="results"></div> 
+        <h2 id="section-title">Recommended</h2>
+        
+        <div id="results" class="video-grid">
+            </div>
+    </main>
 
     <script src="js/state.js"></script>
     <script src="js/search.js"></script>
-
     <script>
+        // Load recommendations on startup
+        window.onload = () => {
+            if (typeof window.loadRecommendations === "function") {
+                window.loadRecommendations();
+            }
+        };
+
         async function doSearch() {
             const q = document.getElementById("q").value.trim();
             if (!q) return;
-            
+            document.getElementById("section-title").innerText = "Search Results";
             const resultsEl = document.getElementById("results");
-            resultsEl.innerHTML = "<p>Searching platforms...</p>";
-
-            if (typeof window.searchAll === "function") {
-                const vids = await window.searchAll(q);
-                window.renderResults(vids);
-            }
+            resultsEl.innerHTML = "<div class='loader'></div>";
+            const vids = await window.searchAll(q);
+            window.renderResults(vids);
         }
     </script>
 </body>
