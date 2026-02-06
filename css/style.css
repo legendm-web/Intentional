@@ -43,3 +43,23 @@ iframe {
   height: 80vh;
   border: none;
 }
+.video-card {
+    display: flex;
+    gap: 15px;
+    background: #f9f9f9;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.video-card:hover {
+    background: #ececec;
+}
+
+.video-card img {
+    border-radius: 4px;
+    object-fit: cover;
+    height: 90px;
+}
