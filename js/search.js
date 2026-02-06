@@ -105,6 +105,10 @@ function renderResults(videos) {
     videos.forEach(v => {
         const card = document.createElement("div");
         card.className = "video-card";
+        card.onclick = () => {
+    if (typeof recordWatch === "function") recordWatch(v); // Record the data locally
+    playVideo(v.id, v.platform);
+};
         card.onclick = () => playVideo(v.id, v.platform);
         card.innerHTML = `<img src="${v.thumbnail}"><div><b>${v.title}</b><br><small>${v.channel}</small></div>`;
         el.appendChild(card);
